@@ -40,9 +40,9 @@ int nmpc_solve( void )
 {
 	nmpc_nWSR = QPOASES_NWSRMAX;
 
-	QProblemB qp( 128 );
+	QProblemB qp( 208 );
 	
-	returnValue retVal = qp.init(nmpcWorkspace.H, nmpcWorkspace.g, nmpcWorkspace.lb, nmpcWorkspace.ub, nmpc_nWSR, nmpcWorkspace.y);
+	returnValue retVal = qp.init(nmpcWorkspace.H, nmpcWorkspace.g, nmpcWorkspace.lb, nmpcWorkspace.ub, nmpc_nWSR);
 
     qp.getPrimalSolution( nmpcWorkspace.x );
     qp.getDualSolution( nmpcWorkspace.y );

@@ -88,5 +88,14 @@ if(QUADROTOR)
       	   ${PROJECT_LIBS}
 	)
 
+	add_executable(nmpc_bluerov2_3-D_ccode 
+	   src/auv/nmpc_bluerov2_3-D.cpp
+	)
+	target_link_libraries(nmpc_bluerov2_3-D_ccode
+      	   ${PROJECT_LIBS}
+	)
+
+
+
 endif(QUADROTOR)
 
