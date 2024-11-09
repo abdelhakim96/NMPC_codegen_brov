@@ -12,11 +12,9 @@ Unmanned Underwater Vehicle"
 #include <ros/package.h>
 #include <boost/algorithm/string.hpp>
 
-USING_NAMESPACE_ACADO
-
-
 int main()
 {
+    USING_NAMESPACE_ACADO
 
     //State Variables:
     DifferentialState x;  // the body position w.r.t X_I
@@ -30,30 +28,9 @@ int main()
     DifferentialState psi;  // yaw angle 
     DifferentialState r;   // yaw rate
 
-    
-    DifferentialState aux_state_px;
-    DifferentialState aux_state_py;
-    DifferentialState aux_state_pz;
-
-
-    DifferentialState aux_state_ox;
-    DifferentialState aux_state_oy;
-    DifferentialState aux_state_oz;
-
-
-    OnlineData pe_x;  // entagelemnent point_x
-    OnlineData pe_y;  // entagelemnent point_y
-    OnlineData pe_z;  // entagelemnent point_z
-
-    OnlineData ob_x;  // obstacle centre_x
-    OnlineData ob_y;  // obstacle centre_y
-    OnlineData ob_z;  // obstacle centre_z
-
-
-
-    //OnlineData Fx_dist;  // the external disturbance force along X_B
-    //OnlineData Fy_dist;  // the external disturbance force along Y_B
-    //OnlineData Fz_dist;  // the external disturbance force along Z_B
+    OnlineData Fx_dist;  // the external disturbance force along X_B
+    OnlineData Fy_dist;  // the external disturbance force along Y_B
+    OnlineData Fz_dist;  // the external disturbance force along Z_B
     // MPC control input 
     Control X;  // Force along X_B
     Control Y;  // Force along Y_B
@@ -95,39 +72,17 @@ int main()
     f << dot(y) == sin(psi) * u +  cos(psi) * v;
     f << dot(z) ==  w;
  
-    f << dot(u) == (X + (m * v - Y_vd * v) * r + (X_u + X_uc *sqrt( u * u + eps) ) * u)/(m - X_ud);
-    f << dot(v) == (Y - (m * u - X_ud * u) * r + (Y_v + Y_vc *sqrt( v * v + eps) ) * v)/(m - Y_vd)  ;
-    f << dot(w) == (Z + (Z_w + Z_wc * sqrt(w * w + eps)) * w + (m * g - F_bouy))/(m - Z_wd)  ;
+    f << dot(u) == (X + (m * v - Y_vd * v) * r + (X_u + X_uc *sqrt( u * u + eps) ) * u)/(m - X_ud) + Fx_dist ;
+    f << dot(v) == (Y - (m * u - X_ud * u) * r + (Y_v + Y_vc *sqrt( v * v + eps) ) * v)/(m - Y_vd) + Fy_dist ;
+    f << dot(w) == (Z + (Z_w + Z_wc * sqrt(w * w + eps)) * w + (m * g - F_bouy))/(m - Z_wd) + Fz_dist ;
 
     f << dot(psi) ==  r;
     f << dot(r) == (M_z - (m * v - Y_vd * v) * u - (X_ud * u - m * u) * v + (N_r + N_rc * sqrt(r * r + eps)) * r)/(I_zz - N_rd);
-
-    f << dot(aux_state_px) == pe_x;
-    f << dot(aux_state_py) == pe_y;
-    f << dot(aux_state_pz) == pe_z;
-
-    f << dot(aux_state_ox) == ob_x;
-    f << dot(aux_state_oy) == ob_y;
-    f << dot(aux_state_oz) == ob_z;
-
-    // calculate entagelement cost
-
-    IntermediateState p_ref_x = (pe_x - ob_x);  //
-    IntermediateState p_ref_y = (pe_y - ob_y);  //
-
-    IntermediateState p_traj_x = (x - ob_x);  //
-    IntermediateState p_traj_y = (x - ob_y);  //
     
-    IntermediateState s =  p_ref_x * p_traj_x + p_ref_y * p_traj_y;
-
-    //IntermediateState p_ref_norm = sqrt(p_ref_x * p_ref_x + p_ref_y  * p_ref_y);  // Constant added for numerical stability
-    //IntermediateState p_traj_norm = sqrt(p_traj_x * p_traj_x + p_traj_y  * p_traj_y + 0.00001);  // Constant added for numerical stability
-
-
 
     // Reference functions and weighting matrices:
     Function h, hN;
-    h << x << y << z << u << v << w << psi << s - 1 << r << X << Y<< Z << M_z;
+    h << x << y << z << u << v << w << psi << r << X << Y<< Z << M_z;
     hN << x << y << z << u << v << w << psi << r;
 
 
