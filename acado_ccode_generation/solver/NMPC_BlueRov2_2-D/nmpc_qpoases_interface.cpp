@@ -22,7 +22,7 @@ extern "C"
 #include "nmpc_common.h"
 }
 
-#include "INCLUDE/QProblemB.hpp"
+#include "INCLUDE/QProblem.hpp"
 
 #if NMPC_COMPUTE_COVARIANCE_MATRIX == 1
 #include "INCLUDE/EXTRAS/SolutionAnalysis.hpp"
@@ -40,9 +40,9 @@ int nmpc_solve( void )
 {
 	nmpc_nWSR = QPOASES_NWSRMAX;
 
-	QProblemB qp( 214 );
+	QProblem qp(165, 60);
 	
-	returnValue retVal = qp.init(nmpcWorkspace.H, nmpcWorkspace.g, nmpcWorkspace.lb, nmpcWorkspace.ub, nmpc_nWSR);
+	returnValue retVal = qp.init(nmpcWorkspace.H, nmpcWorkspace.g, nmpcWorkspace.A, nmpcWorkspace.lb, nmpcWorkspace.ub, nmpcWorkspace.lbA, nmpcWorkspace.ubA, nmpc_nWSR);
 
     qp.getPrimalSolution( nmpcWorkspace.x );
     qp.getDualSolution( nmpcWorkspace.y );
