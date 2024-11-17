@@ -12,9 +12,11 @@ Unmanned Underwater Vehicle"
 #include <ros/package.h>
 #include <boost/algorithm/string.hpp>
 
+USING_NAMESPACE_ACADO
+
+
 int main()
 {
-    USING_NAMESPACE_ACADO
 
     //State Variables:
     DifferentialState x;  // the body position w.r.t X_I
@@ -28,19 +30,45 @@ int main()
     DifferentialState psi;  // yaw angle 
     DifferentialState r;   // yaw rate
 
-    OnlineData Fx_dist;  // the external disturbance force along X_B
-    OnlineData Fy_dist;  // the external disturbance force along Y_B
-    OnlineData Fz_dist;  // the external disturbance force along Z_B
+    
+    DifferentialState aux_state_px;
+    DifferentialState aux_state_py;
+    DifferentialState aux_state_pz;
+
+
+    DifferentialState aux_state_ox;
+    DifferentialState aux_state_oy;
+    DifferentialState aux_state_oz;
+
+    DifferentialState aux_slack;
+
+    OnlineData pe_x;  // entagelemnent point_x
+    OnlineData pe_y;  // entagelemnent point_y
+    OnlineData pe_z;  // entagelemnent point_z
+
+    OnlineData ob_x;  // obstacle centre_x
+    OnlineData ob_y;  // obstacle centre_y
+    OnlineData ob_z;  // obstacle centre_z
+
+
+
+    //OnlineData Fx_dist;  // the external disturbance force along X_B
+    //OnlineData Fy_dist;  // the external disturbance force along Y_B
+    //OnlineData Fz_dist;  // the external disturbance force along Z_B
     // MPC control input 
     Control X;  // Force along X_B
     Control Y;  // Force along Y_B
     Control Z;  // Force along Z_B
     Control M_z;  // Torque about Z_B (Yawing moment)
 
+    Control slack;
+
+     
+
     // BlueROV2 Model Parameters 
     
     //const double F_bouy = 114.8; // Bouyancy force (N)
-    const double m = 13.4;    // BlueROV2 mass (kg)  
+    const double m = 11.4;    // BlueROV2 mass (kg)  
     const double g = 9.82;  // gravitational field strength (m/s^2)
 
     const double F_bouy = 1026 * 0.0115 * g; // Bouyancy force (N)
@@ -72,17 +100,51 @@ int main()
     f << dot(y) == sin(psi) * u +  cos(psi) * v;
     f << dot(z) ==  w;
  
-    f << dot(u) == (X + (m * v - Y_vd * v) * r + (X_u + X_uc *sqrt( u * u + eps) ) * u)/(m - X_ud) + Fx_dist ;
-    f << dot(v) == (Y - (m * u - X_ud * u) * r + (Y_v + Y_vc *sqrt( v * v + eps) ) * v)/(m - Y_vd) + Fy_dist ;
-    f << dot(w) == (Z + (Z_w + Z_wc * sqrt(w * w + eps)) * w + (m * g - F_bouy))/(m - Z_wd) + Fz_dist ;
+    f << dot(u) == (X + (m * v - Y_vd * v) * r + (X_u + X_uc *sqrt( u * u + eps) ) * u)/(m - X_ud);
+    f << dot(v) == (Y - (m * u - X_ud * u) * r + (Y_v + Y_vc *sqrt( v * v + eps) ) * v)/(m - Y_vd)  ;
+    f << dot(w) == (Z + (Z_w + Z_wc * sqrt(w * w + eps)) * w + (m * g - F_bouy))/(m - Z_wd)  ;
 
     f << dot(psi) ==  r;
     f << dot(r) == (M_z - (m * v - Y_vd * v) * u - (X_ud * u - m * u) * v + (N_r + N_rc * sqrt(r * r + eps)) * r)/(I_zz - N_rd);
+
+    f << dot(aux_state_px) == pe_x ;
+    f << dot(aux_state_py) == pe_y;
+    f << dot(aux_state_pz) == pe_z;
+
+    f << dot(aux_state_ox) == ob_x;
+    f << dot(aux_state_oy) == ob_y;
+    f << dot(aux_state_oz) == ob_z;
+
+    f << dot(aux_slack) == slack;
+
+
+    // calculate entagelement cost
+
+    //IntermediateState p_ref_x = (pe_x - ob_x);  //
+    //IntermediateState p_ref_y = (pe_y - ob_y);  //
+
+    //IntermediateState p_traj_x = (x - ob_x);  //
+    //IntermediateState p_traj_y = (x - ob_y);  //
     
+    //IntermediateState s =  p_ref_x * p_traj_x + p_ref_y * p_traj_y;
+
+
+    //IntermediateState s =  (x - pe_x) * (x - pe_x) + (y - pe_y) * (y - pe_y);
+
+    //IntermediateState p_ref_norm = sqrt(p_ref_x * p_ref_x + p_ref_y  * p_ref_y);  // Constant added for numerical stability
+    //IntermediateState p_traj_norm = sqrt(p_traj_x * p_traj_x + p_traj_y  * p_traj_y + 0.00001);  // Constant added for numerical stability
+
+
 
     // Reference functions and weighting matrices:
     Function h, hN;
-    h << x << y << z << u << v << w << psi << r << X << Y<< Z << M_z;
+
+    //IntermediateState distance_to_obstacle;
+    //distance_to_obstacle = sqrt((x - ob_x) * (x - ob_x) + (y - ob_y) * (y - ob_y));
+
+    //h << x << y << z << u << v << w << psi << s - 1 << r << X << Y<< Z << M_z;
+    
+    h << x << y << z << u << v << w << psi << r << x << X << Y<< Z << M_z << slack;
     hN << x << y << z << u << v << w << psi << r;
 
 
@@ -92,7 +154,7 @@ int main()
     //
     // Optimal Control Problem
     //
-    double N = 50;
+    double N = 30;
     double Ts = 0.01;
     OCP ocp(0.0, N * Ts, N);
 
@@ -107,7 +169,22 @@ int main()
     ocp.subjectTo(-80  <= Y <= 80);
     ocp.subjectTo(-160 <= Z <= 160);
     ocp.subjectTo(-160 <= M_z <= 160);    //in Nm
+    ocp.subjectTo( slack >= 0 );
 
+    //ocp.subjectTo(-160 <= x <= 160);    //in Nm
+
+    double d_min = 2.0;  // Minimum distance from each side of the square
+
+// Constraints to keep (x, y) outside a square centered at (ob_x, ob_y)
+//ocp.subjectTo((y - (ob_y + d_min)) >= 0);  // Above the top side
+//ocp.subjectTo((y - (ob_y - d_min)) <= 0);  // Below the bottom side
+//ocp.subjectTo((x - (ob_x + d_min)) >= 0);  // Right of the right side
+//ocp.subjectTo((x - (ob_x - d_min)) <= 0);  // Left of the left side
+
+    //ocp.subjectTo((x - ob_x) * (x - ob_x) + (y - ob_y) * (y - ob_y) + eps - (d_min - slack) * (d_min - slack) >= 0);
+    //ocp.subjectTo( slack >= 0 );
+
+   // double eps = 0.0001;  // Small tolerance value
     // Export the code:
     OCPexport mpc(ocp);
 
@@ -125,7 +202,7 @@ int main()
 
     //mpc.set(HOTSTART_QP, YES);
 
-   // mpc.set(CG_HARDCODE_CONSTRAINT_VALUES, YES);  // Possible to Change Constraints Afterwards (only with qpOASES)
+    mpc.set(CG_HARDCODE_CONSTRAINT_VALUES, NO);  // Possible to Change Constraints Afterwards (only with qpOASES)
 
     mpc.set(GENERATE_TEST_FILE, NO);
     mpc.set(GENERATE_MAKE_FILE, NO);
